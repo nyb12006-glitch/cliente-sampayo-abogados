@@ -297,7 +297,8 @@
     justify-content: flex-end;
     margin-bottom: 28px;
   }
-  #logo3d { display: block; width: 320px; height: 320px; }
+  #logo3d { display: block; width: 320px; height: 320px; cursor: grab; }
+  #logo3d:active { cursor: grabbing; }
 
   /* Hero right */
   .hero-text { flex: 1; overflow: hidden; }
@@ -1247,12 +1248,53 @@
   const front = new THREE.Mesh(geo, mat); front.position.z = 0.095; group.add(front);
   const back = new THREE.Mesh(geo, mat); back.rotation.y = Math.PI; back.position.z = -0.095; group.add(back);
 
-  let t = 0;
+  // Drag-to-spin con inercia y giro suave de fondo
+  let isDragging = false;
+  let lastX = 0;
+  let velY = 0;
+  let autoAngle = 0;
+  const AUTO_SPEED = 0.006;
+  const FRICTION = 0.92;
+
+  canvas.addEventListener('mousedown', e => {
+    isDragging = true; lastX = e.clientX; velY = 0;
+  });
+  window.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const dx = e.clientX - lastX;
+    velY = dx * 0.012;
+    group.rotation.y += velY;
+    lastX = e.clientX;
+  });
+  window.addEventListener('mouseup', () => { isDragging = false; });
+
+  canvas.addEventListener('touchstart', e => {
+    isDragging = true; lastX = e.touches[0].clientX; velY = 0;
+    e.preventDefault();
+  }, { passive: false });
+  window.addEventListener('touchmove', e => {
+    if (!isDragging) return;
+    const dx = e.touches[0].clientX - lastX;
+    velY = dx * 0.012;
+    group.rotation.y += velY;
+    lastX = e.touches[0].clientX;
+  }, { passive: true });
+  window.addEventListener('touchend', () => { isDragging = false; });
+
   (function animate() {
     requestAnimationFrame(animate);
-    t += 0.012;
-    group.rotation.y = t;
-    group.rotation.x = Math.sin(t * 0.3) * 0.07;
+    if (!isDragging) {
+      if (Math.abs(velY) > 0.0003) {
+        velY *= FRICTION;
+        group.rotation.y += velY;
+        group.rotation.x *= 0.95;
+      } else {
+        velY = 0;
+        autoAngle += AUTO_SPEED;
+        group.rotation.y += AUTO_SPEED;
+        group.rotation.x = Math.sin(autoAngle * 0.3) * 0.07;
+      }
+    }
     renderer.render(scene, camera);
   })();
 })();
